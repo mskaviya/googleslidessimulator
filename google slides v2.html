@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>P3–P4 Slide Simulator</title>
+  <style>
+    :root{
+      --bg:#f1f3f4;
+      --panel:#ffffff;
+      --line:#dadce0;
+      --line2:#e0e3e7;
+      --text:#202124;
+      --muted:#5f6368;
+      --blue:#1a73e8;
+      --blueSoft:#d2e3fc;
+      --yellow:#fbbc04;
+      --shadow:0 1px 2px rgba(60,64,67,.15),0 1px 3px 1px rgba(60,64,67,.1);
+      --radius:12px;
+      --slideW:1120px;
+      --slideH:630px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Arial, Helvetica, sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      overflow:hidden;
+    }
+
+    .app{
+      display:grid;
+      grid-template-rows:50px 42px 1fr;
+      height:100vh;
+    }
+
+    /* Top title/menu bar */
+    .topbar{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:0 12px;
+      background:#fff;
+      border-bottom:1px solid var(--line);
+    }
+
+    .slides-icon{
+      width:28px;height:28px;border-radius:6px;
+      background:#f9ab00;position:relative;flex:0 0 auto;
+      box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);
+    }
+    .slides-icon:before{
+      content:"";position:absolute;left:7px;top:5px;width:14px;height:18px;background:#fff;border-radius:2px;
+    }
+    .slides-icon:after{
+      content:"";position:absolute;left:10px;top:10px;width:8px;height:2px;background:#f9ab00;box-shadow:0 4px 0 #f9ab00,0 8px 0 #f9ab00;
+    }
+
+    .title-wrap{display:flex;flex-direction:column;gap:2px;min-width:260px}
+    .title-row{display:flex;align-items:center;gap:8px}
+    .doc-title{
+      border:none;background:transparent;font-size:18px;color:var(--text);outline:none;width:210px;padding:2px 4px;border-radius:4px;
+    }
+    .doc-title:focus{background:#f8f9fa;box-shadow:inset 0 0 0 1px var(--blueSoft)}
+    .star{color:#9aa0a6;font-size:18px}
+    .menu-row{display:flex;gap:18px;font-size:13px;color:#3c4043;position:relative}
+    .menu-row span{cursor:default}
+    .menu-item{position:relative;cursor:pointer;padding:2px 0}
+    .menu-item:hover{color:#174ea6}
+    .file-menu{
+      position:absolute;top:24px;left:0;width:220px;background:#fff;border:1px solid var(--line);border-radius:12px;
+      box-shadow:0 10px 24px rgba(0,0,0,.16);padding:8px;display:none;z-index:120;
+    }
+    .file-menu.show{display:block}
+    .file-option{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;font-size:14px;color:#202124;cursor:pointer;
+    }
+    .file-option:hover{background:#f1f3f4}
+    .file-option small{color:#5f6368;font-size:12px}
+    .hint-badge{font-size:11px;color:#5f6368;background:#f8f9fa;border:1px solid #e0e3e7;padding:2px 6px;border-radius:999px}
+
+    .topbar-right{
+      margin-left:auto;display:flex;align-items:center;gap:10px;
+    }
+    .icon-btn{
+      width:32px;height:32px;border-radius:50%;display:grid;place-items:center;border:none;background:transparent;color:#5f6368;cursor:pointer;
+    }
+    .icon-btn:hover{background:#f1f3f4}
+
+    .slideshow-btn{
+      height:32px;padding:0 14px;border-radius:16px;border:1px solid #c7c9cc;background:#fff;color:#3c4043;font-weight:600;cursor:pointer;
+    }
+    .share-btn{
+      height:32px;padding:0 16px;border:none;border-radius:16px;background:#c2e7ff;color:#0b57d0;font-weight:700;cursor:pointer;
+    }
+
+    /* Toolbar */
+    .toolbar{
+      display:flex;align-items:center;gap:8px;padding:0 12px;background:#fff;border-bottom:1px solid var(--line);
+      font-size:13px;color:#3c4043;
+    }
+    .search-pill{
+      width:220px;height:30px;border-radius:15px;background:#f1f3f4;display:flex;align-items:center;padding:0 12px;color:#5f6368;gap:10px;
+    }
+    .tool-sep{width:1px;height:22px;background:var(--line)}
+    .tool-btn,.tool-select{
+      height:30px;padding:0 10px;border-radius:6px;border:none;background:transparent;color:#3c4043;display:flex;align-items:center;gap:6px;cursor:pointer;
+    }
+    .tool-btn:hover,.tool-select:hover{background:#f1f3f4}
+    .tool-btn.active{background:#e8f0fe;color:#174ea6}
+
+    /* Main area */
+    .main{
+      display:grid;
+      grid-template-columns:168px 1fr;
+      min-height:0;
+    }
+
+    /* Left thumbnails */
+    .left-pane{
+      background:#f8f9fa;border-right:1px solid var(--line);padding:16px 12px;overflow:auto;
+    }
+    .thumb{
+      width:126px;height:72px;background:#fff;border:2px solid var(--blue);border-radius:14px;margin:6px auto;padding:8px;position:relative;box-shadow:0 1px 2px rgba(0,0,0,.06);
+    }
+    .thumb:before,.thumb:after{
+      content:"";position:absolute;left:12px;right:12px;border:1px solid #d9d9d9;background:#fafafa;
+    }
+    .thumb:before{top:14px;height:26px}
+    .thumb:after{bottom:12px;height:18px}
+    .slide-num{position:absolute;left:-14px;top:0;font-size:13px;color:#3c4043}
+
+    /* Editor area */
+    .editor-wrap{
+      position:relative;overflow:auto;background:#eef0f2;
+    }
+    .rulers-top{
+      position:sticky;top:0;z-index:2;height:22px;background:#eef0f2;border-bottom:1px solid #d3d6da;display:flex;align-items:flex-end;padding-left:270px;
+    }
+    .ruler-scale{width:1120px;height:100%;display:flex;justify-content:space-between;font-size:10px;color:#5f6368;padding:0 8px}
+    .ruler-scale span{position:relative;display:flex;align-items:flex-end}
+    .ruler-scale span:before{content:"";position:absolute;top:2px;left:50%;width:1px;height:8px;background:#8a8d91}
+
+    .canvas-area{
+      min-width:1400px;min-height:900px;padding:40px 80px 80px 80px;position:relative;
+    }
+    .slide-shell{
+      width:var(--slideW);height:var(--slideH);margin:0 auto;background:#f7f7f7;border:1px solid #d7d7d7;position:relative;box-shadow:0 1px 1px rgba(0,0,0,.04);
+    }
+
+    #slide{
+      position:absolute;left:39px;top:89px;width:calc(var(--slideW) - 78px);height:calc(var(--slideH) - 178px);
+      background:#fff;border:1px solid #dcdcdc;overflow:hidden;
+    }
+
+    .placeholder{
+      position:absolute;left:40px;right:40px;border:2px solid #dfdfdf;background:#fcfcfc;display:flex;align-items:center;justify-content:center;text-align:center;color:#444;cursor:text;
+      user-select:none;
+    }
+    .title-ph{top:58px;height:255px;font-size:82px;font-weight:500;letter-spacing:-2px}
+    .subtitle-ph{top:324px;height:100px;font-size:44px;color:#5f6368}
+    .placeholder.editing{outline:3px solid #cfe1ff;border-color:#8ab4f8;background:#fff}
+    .placeholder[contenteditable="true"]{user-select:text}
+
+    .status-handle{
+      width:36px;height:4px;border-radius:99px;background:#777;position:absolute;left:50%;transform:translateX(-50%);bottom:12px;opacity:.65;
+    }
+
+    /* Floating quick tools */
+    .quick-tools{
+      position:absolute;left:20px;top:20px;display:flex;gap:8px;z-index:3;
+    }
+    .quick-tools button{
+      border:none;background:#fff;padding:8px 12px;border-radius:999px;box-shadow:var(--shadow);cursor:pointer;font-size:13px;color:#3c4043;
+    }
+    .quick-tools button:hover{background:#f8f9fa}
+
+    /* Fake notifications */
+    .toast{
+      position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(120px);
+      background:#202124;color:#fff;padding:12px 16px;border-radius:12px;box-shadow:var(--shadow);font-size:14px;opacity:0;pointer-events:none;transition:.25s ease;z-index:50;
+    }
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+    /* Share modal */
+    .modal-overlay{
+      position:fixed;inset:0;background:rgba(32,33,36,.42);display:none;align-items:center;justify-content:center;z-index:100;
+      backdrop-filter:blur(2px);
+    }
+    .modal-overlay.show{display:flex}
+    .share-modal{
+      width:min(720px,92vw);background:#fff;border-radius:24px;box-shadow:0 12px 36px rgba(0,0,0,.2);overflow:hidden;
+    }
+    .share-head{padding:24px 28px 10px 28px;display:flex;justify-content:space-between;align-items:center}
+    .share-head h2{margin:0;font-size:28px;font-weight:500}
+    .share-close{border:none;background:transparent;font-size:24px;cursor:pointer;color:#5f6368}
+    .share-body{padding:0 28px 24px 28px}
+    .access-box{
+      border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:18px;background:#fff;
+    }
+    .share-input-row{display:flex;gap:10px;align-items:center;margin-bottom:16px}
+    .share-input{
+      flex:1;height:46px;border:1px solid var(--line);border-radius:999px;padding:0 18px;font-size:15px;outline:none;
+    }
+    .share-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,115,232,.14)}
+    .access-title{font-size:12px;color:#5f6368;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+    .access-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid #f1f3f4}
+    .access-row:first-of-type{border-top:none}
+    .access-left{display:flex;align-items:center;gap:12px}
+    .globe,.lock{
+      width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:#e8f0fe;color:#174ea6;font-size:18px;
+    }
+    .access-text strong{display:block;font-size:14px}
+    .access-text span{font-size:13px;color:#5f6368}
+    .dropdown-sim{
+      height:36px;padding:0 12px;border-radius:18px;border:1px solid var(--line);background:#fff;font-weight:600;color:#3c4043;
+    }
+    .link-row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:18px}
+    .fake-link{
+      padding:10px 14px;border-radius:10px;background:#f8f9fa;border:1px dashed #c7c9cc;color:#3c4043;font-size:13px;overflow:auto;white-space:nowrap;flex:1;
+    }
+    .copy-btn{
+      border:none;background:#e8f0fe;color:#174ea6;font-weight:700;border-radius:18px;padding:10px 16px;cursor:pointer;
+    }
+    .share-footer{
+      display:flex;justify-content:flex-end;gap:10px;padding-top:18px;
+    }
+    .ghost-btn,.primary-btn{
+      height:40px;padding:0 18px;border-radius:20px;border:none;cursor:pointer;font-weight:700;
+    }
+    .ghost-btn{background:#f1f3f4;color:#3c4043}
+    .primary-btn{background:var(--blue);color:#fff}
+
+    /* Student extras */
+    .mini-tip{
+      position:absolute;right:20px;top:20px;background:#fff7e0;border:1px solid #f2d58a;color:#7a5600;padding:10px 12px;border-radius:14px;font-size:13px;box-shadow:var(--shadow);
+      max-width:240px;z-index:3;
+    }
+
+    @media (max-width:1200px){
+      .menu-row{display:none}
+      .title-wrap{min-width:180px}
+      .doc-title{width:160px}
+      .search-pill{width:150px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="slides-icon" aria-hidden="true"></div>
+      <div class="title-wrap">
+        <div class="title-row">
+          <input class="doc-title" id="docTitle" value="Untitled presentation" aria-label="Presentation title" />
+          <span class="star">☆</span>
+        </div>
+        <div class="menu-row">
+          <span class="menu-item" id="fileMenuBtn">File
+            <div class="file-menu" id="fileMenu">
+              <div class="file-option" id="fileNewOption"><span>New</span><small>Reset slide</small></div>
+              <div class="file-option" id="fileCopyOption"><span>Make a copy</span><span class="hint-badge">Explain only</span></div>
+              <div class="file-option" id="fileShareOption"><span>Share</span><small>Open share window</small></div>
+              <div class="file-option" id="fileRenameOption"><span>Rename</span><small>Edit title</small></div>
+              <div class="file-option" id="filePrintOption"><span>Print</span><span class="hint-badge">Explain only</span></div>
+            </div>
+          </span><span>Edit</span><span>View</span><span>Insert</span><span>Format</span><span>Slide</span><span>Arrange</span><span>Tools</span><span>Extensions</span><span>Help</span>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <button class="icon-btn" title="Comments">💬</button>
+        <button class="icon-btn" title="Present on another screen">▢</button>
+        <button class="slideshow-btn" id="slideshowBtn">Slideshow ▾</button>
+        <button class="share-btn" id="shareBtn">🔒 Share</button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-pill">🔍 <span>Menus</span></div>
+      <button class="tool-btn">＋</button>
+      <button class="tool-btn">📂</button>
+      <button class="tool-btn" id="undoBtn" title="Undo">↶</button>
+      <button class="tool-btn" id="redoBtn" title="Redo">↷</button>
+      <button class="tool-btn">🖨️</button>
+      <button class="tool-btn">🔎</button>
+      <button class="tool-select">Fit ▾</button>
+      <div class="tool-sep"></div>
+      <button class="tool-btn active">🖱️</button>
+      <button class="tool-btn" id="textTool">Tt</button>
+      
+      <input type="color" id="textColorPicker" class="tool-btn" value="#202124" title="Text color" style="padding: 0 4px; width: 32px; cursor: pointer;">
+      
+      <button class="tool-btn" id="shapeTool">⬭</button>
+      <button class="tool-btn" id="lineTool">／</button>
+      <button class="tool-btn" id="commentTool">💭</button>
+      <div class="tool-sep"></div>
+      <button class="tool-btn" id="bgBtn">Background</button>
+      <button class="tool-btn" id="layoutBtn">Layout</button>
+      <button class="tool-btn" id="themeBtn">Theme</button>
+      <button class="tool-btn" id="transitionBtn">Transition</button>
+    </div>
+
+    <div class="main">
+      <aside class="left-pane">
+        <div class="thumb">
+          <div class="slide-num">1</div>
+        </div>
+      </aside>
+
+      <section class="editor-wrap">
+        <div class="rulers-top">
+          <div class="ruler-scale">
+            <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span>
+          </div>
+        </div>
+
+        <div class="canvas-area">
+          <div class="quick-tools">
+            <button id="addTextboxBtn">Add text box</button>
+            <button id="resetBtn">Reset slide</button>
+            <button id="practiceShareBtn">Practise sharing</button>
+          </div>
+
+          <div class="mini-tip">
+            Students can click the title or subtitle to type, just like a real slide.
+          </div>
+
+          <div class="slide-shell">
+            <div id="slide">
+              <div class="placeholder title-ph" id="titleBox" contenteditable="true" spellcheck="false">Click to add title</div>
+              <div class="placeholder subtitle-ph" id="subtitleBox" contenteditable="true" spellcheck="false">Click to add subtitle</div>
+            </div>
+            <div class="status-handle"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="shareModal" aria-hidden="true">
+    <div class="share-modal" role="dialog" aria-modal="true" aria-labelledby="shareHeading">
+      <div class="share-head">
+        <h2 id="shareHeading">Share “<span id="shareDocName">Untitled presentation</span>”</h2>
+        <button class="share-close" id="closeShare">✕</button>
+      </div>
+      <div class="share-body">
+        <div class="access-box">
+          <div class="share-input-row">
+            <input class="share-input" id="shareNameInput" placeholder="Add people or groups" />
+            <button class="primary-btn" id="sendInviteBtn">Send</button>
+          </div>
+
+          <div class="access-title">General access</div>
+          <div class="access-row">
+            <div class="access-left">
+              <div class="globe">🌍</div>
+              <div class="access-text">
+                <strong>Anyone with the link</strong>
+                <span>This is a pretend classroom sharing experience only.</span>
+              </div>
+            </div>
+            <button class="dropdown-sim" id="accessToggle">Viewer ▾</button>
+          </div>
+
+          <div class="access-row">
+            <div class="access-left">
+              <div class="lock">🔒</div>
+              <div class="access-text">
+                <strong>Teacher review mode</strong>
+                <span>Students can experience sharing without sending anything online.</span>
+              </div>
+            </div>
+            <button class="dropdown-sim">Safe mode</button>
+          </div>
+
+          <div class="link-row">
+            <div class="fake-link" id="fakeLink">https://classroom-share.example/untitled-presentation</div>
+            <button class="copy-btn" id="copyLinkBtn">Copy link</button>
+          </div>
+        </div>
+
+        <div class="share-footer">
+          <button class="ghost-btn" id="doneShareBtn">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const docTitle = document.getElementById('docTitle');
+    const shareDocName = document.getElementById('shareDocName');
+    const fakeLink = document.getElementById('fakeLink');
+    const shareModal = document.getElementById('shareModal');
+    const toast = document.getElementById('toast');
+    const slide = document.getElementById('slide');
+    const titleBox = document.getElementById('titleBox');
+    const subtitleBox = document.getElementById('subtitleBox');
+    const shareNameInput = document.getElementById('shareNameInput');
+    const accessToggle = document.getElementById('accessToggle');
+    const fileMenuBtn = document.getElementById('fileMenuBtn');
+    const fileMenu = document.getElementById('fileMenu');
+
+    let shareRole = 'Viewer';
+    let textCounter = 0;
+
+    // --- History State Variables ---
+    let slideHistory = [];
+    let historyStep = -1;
+
+    function slugify(text){
+      return text.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'untitled-presentation';
+    }
+
+    function updateShareInfo(){
+      const name = docTitle.value.trim() || 'Untitled presentation';
+      shareDocName.textContent = name;
+      fakeLink.textContent = `https://classroom-share.example/${slugify(name)}`;
+    }
+
+    function showToast(message){
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    function openFileMenu(){
+      fileMenu.classList.add('show');
+    }
+
+    function closeFileMenu(){
+      fileMenu.classList.remove('show');
+    }
+
+    function openShareModal(){
+      closeFileMenu();
+      updateShareInfo();
+      shareModal.classList.add('show');
+      shareModal.setAttribute('aria-hidden','false');
+    }
+
+    function closeShareModal(){
+      shareModal.classList.remove('show');
+      shareModal.setAttribute('aria-hidden','true');
+    }
+
+    // --- State Management ---
+    function saveState() {
+      const currentState = slide.innerHTML;
+      if (historyStep >= 0 && slideHistory[historyStep] === currentState) return;
+      
+      slideHistory = slideHistory.slice(0, historyStep + 1);
+      slideHistory.push(currentState);
+      historyStep++;
+    }
+
+    function restoreEvents() {
+      attachPlaceholderEffects();
+      slide.querySelectorAll('.placeholder').forEach(el => {
+        if (el.id !== 'titleBox' && el.id !== 'subtitleBox') {
+          makeDraggable(el);
+        }
+      });
+    }
+
+    function undo() {
+      if (historyStep > 0) {
+        historyStep--;
+        slide.innerHTML = slideHistory[historyStep];
+        restoreEvents();
+        showToast('Undo performed.');
+      }
+    }
+
+    function redo() {
+      if (historyStep < slideHistory.length - 1) {
+        historyStep++;
+        slide.innerHTML = slideHistory[historyStep];
+        restoreEvents();
+        showToast('Redo performed.');
+      }
+    }
+
+    function resetSlide(){
+      slide.innerHTML = `
+        <div class="placeholder title-ph" id="titleBox" contenteditable="true" spellcheck="false">Click to add title</div>
+        <div class="placeholder subtitle-ph" id="subtitleBox" contenteditable="true" spellcheck="false">Click to add subtitle</div>
+      `;
+      attachPlaceholderEffects();
+      saveState();
+      showToast('Slide reset.');
+    }
+
+    function addTextbox(){
+      textCounter += 1;
+      const box = document.createElement('div');
+      box.className = 'placeholder editing';
+      box.contentEditable = 'true';
+      box.spellcheck = false;
+      box.textContent = 'Click to type text';
+      box.style.left = '120px';
+      box.style.top = `${120 + (textCounter * 28)}px`;
+      box.style.right = 'auto';
+      box.style.width = '360px';
+      box.style.height = '72px';
+      box.style.fontSize = '32px';
+      box.style.justifyContent = 'flex-start';
+      box.style.padding = '12px 16px';
+      box.style.background = '#fff';
+      box.style.cursor = 'move';
+      makeDraggable(box);
+      slide.appendChild(box);
+      box.focus();
+      document.execCommand?.('selectAll', false, null);
+      saveState();
+      showToast('Text box added.');
+    }
+
+    // --- Centralized Dragging Logic ---
+    let draggingEl = null;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    document.addEventListener('mousemove', (e) => {
+      if (!draggingEl) return;
+      const parentRect = slide.getBoundingClientRect();
+      let newLeft = e.clientX - parentRect.left - offsetX;
+      let newTop = e.clientY - parentRect.top - offsetY;
+      newLeft = Math.max(0, Math.min(newLeft, slide.clientWidth - draggingEl.offsetWidth));
+      newTop = Math.max(0, Math.min(newTop, slide.clientHeight - draggingEl.offsetHeight));
+      draggingEl.style.left = `${newLeft}px`;
+      draggingEl.style.top = `${newTop}px`;
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (draggingEl) {
+        draggingEl = null;
+        saveState(); // Save state after moving completes
+      }
+    });
+
+    function makeDraggable(el){
+      el.onmousedown = (e) => {
+        if (document.activeElement === el) return;
+        draggingEl = el;
+        const rect = el.getBoundingClientRect();
+        const parentRect = slide.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+        el.style.left = `${rect.left - parentRect.left}px`;
+        el.style.top = `${rect.top - parentRect.top}px`;
+        el.style.right = 'auto';
+      };
+    }
+
+    function attachPlaceholderEffects(){
+      slide.querySelectorAll('.placeholder').forEach(el => {
+        // Prevent duplicate listeners on re-attach by clearing old ones if needed,
+        // but simple addEventListener handles this decently for focus/blur.
+        el.addEventListener('focus', () => el.classList.add('editing'));
+        el.addEventListener('blur', () => {
+          el.classList.remove('editing');
+          saveState(); // Save state when user finishes typing
+        });
+      });
+    }
+
+    // --- Event Listeners ---
+    document.getElementById('shareBtn').addEventListener('click', openShareModal);
+
+    fileMenuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileMenu.classList.toggle('show');
+    });
+
+    document.getElementById('fileNewOption').addEventListener('click', () => {
+      resetSlide();
+      closeFileMenu();
+    });
+
+    document.getElementById('fileCopyOption').addEventListener('click', () => {
+      showToast('Make a copy creates another version of the slide. This simulator explains the feature only.');
+      closeFileMenu();
+    });
+
+    document.getElementById('fileShareOption').addEventListener('click', () => {
+      closeFileMenu();
+      openShareModal();
+    });
+
+    document.getElementById('fileRenameOption').addEventListener('click', () => {
+      closeFileMenu();
+      docTitle.focus();
+      docTitle.select();
+      showToast('Type a new presentation name.');
+    });
+
+    document.getElementById('filePrintOption').addEventListener('click', () => {
+      showToast('Print sends slides to paper or PDF. This simulator explains the feature only.');
+      closeFileMenu();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!fileMenu.contains(e.target) && e.target !== fileMenuBtn) {
+        closeFileMenu();
+      }
+    });
+
+    document.getElementById('practiceShareBtn').addEventListener('click', openShareModal);
+    document.getElementById('closeShare').addEventListener('click', closeShareModal);
+    document.getElementById('doneShareBtn').addEventListener('click', closeShareModal);
+    shareModal.addEventListener('click', (e) => {
+      if (e.target === shareModal) closeShareModal();
+    });
+
+    document.getElementById('copyLinkBtn').addEventListener('click', async () => {
+      try{
+        await navigator.clipboard.writeText(fakeLink.textContent);
+        showToast('Link copied.');
+      }catch{
+        showToast('Link ready to copy.');
+      }
+    });
+
+    document.getElementById('sendInviteBtn').addEventListener('click', () => {
+      const name = shareNameInput.value.trim();
+      if(!name){
+        showToast('Type a name first.');
+        return;
+      }
+      showToast(`Pretend shared with ${name} as ${shareRole.toLowerCase()}.`);
+      shareNameInput.value = '';
+    });
+
+    accessToggle.addEventListener('click', () => {
+      shareRole = shareRole === 'Viewer' ? 'Editor' : 'Viewer';
+      accessToggle.textContent = `${shareRole} ▾`;
+      showToast(`Access changed to ${shareRole.toLowerCase()}.`);
+    });
+
+    document.getElementById('slideshowBtn').addEventListener('click', () => {
+      showToast('Slideshow mode can be added next.');
+    });
+
+    document.getElementById('bgBtn').addEventListener('click', () => {
+      slide.style.background = slide.style.background === 'rgb(255, 249, 230)' ? '#fff' : '#fff9e6';
+      saveState();
+      showToast('Background changed.');
+    });
+
+    document.getElementById('transitionBtn').addEventListener('click', () => {
+      slide.animate([
+        {opacity:0.45, transform:'scale(0.985)'},
+        {opacity:1, transform:'scale(1)'}
+      ], {duration:500, easing:'ease-out'});
+      showToast('Transition preview played.');
+    });
+
+    document.getElementById('themeBtn').addEventListener('click', () => {
+      const isDark = document.body.dataset.theme === 'dark';
+      if(isDark){
+        document.body.dataset.theme = '';
+        titleBox.style.color = '#444';
+        subtitleBox.style.color = '#5f6368';
+        showToast('Light theme preview.');
+      }else{
+        document.body.dataset.theme = 'dark';
+        slide.style.background = '#fcfcff';
+        titleBox.style.color = '#1f1f1f';
+        subtitleBox.style.color = '#3c4043';
+        showToast('Theme preview changed.');
+      }
+      saveState();
+    });
+
+    // --- New Features Logic ---
+    document.getElementById('undoBtn').addEventListener('click', undo);
+    document.getElementById('redoBtn').addEventListener('click', redo);
+
+    document.getElementById('textColorPicker').addEventListener('input', (e) => {
+      document.execCommand('foreColor', false, e.target.value);
+      saveState();
+    });
+
+    document.getElementById('addTextboxBtn').addEventListener('click', addTextbox);
+    document.getElementById('textTool').addEventListener('click', addTextbox);
+    document.getElementById('resetBtn').addEventListener('click', resetSlide);
+
+    docTitle.addEventListener('input', updateShareInfo);
+
+    // Initial load configurations
+    attachPlaceholderEffects();
+    updateShareInfo();
+    saveState(); // Capture the very first state for undoing
+  </script>
+</body>
+</html>
